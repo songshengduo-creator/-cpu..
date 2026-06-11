@@ -4,21 +4,36 @@
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>
+#include <cstdio>
+#include <string>
+#include <vector>
 #include <android/log.h>
 
 #define TAG "CpuinfoSpoofer"
 #define LOGI(...) __android_log_print(ANDROID_LOG_INFO,  TAG, __VA_ARGS__)
 #define LOGE(...) __android_log_print(ANDROID_LOG_ERROR, TAG, __VA_ARGS__)
 
-static const char *TARGET_PKGS[] = {
-    "com.tencent.tmgp.dfm",
-    "com.tencent.mf.uam",
-    "com.liuzh.deviceinfo",
-    nullptr
-};
+#define CONF_PATH "/data/adb/modules/cpuinfo_spoofer/packages.conf"
+#define FAKE_CPUINFO "/data/adb/modules/cpuinfo_spoofer/cpuinfo_spoof"
+#define REAL_CPUINFO "/proc/cpuinfo"
 
-static const char *FAKE_CPUINFO = "/data/adb/modules/cpuinfo_spoofer/cpuinfo_spoof";
-static const char *REAL_CPUINFO = "/proc/cpuinfo";
+static std::vector<std::string> loadPackages() {
+    std::vector<std::string> pkgs;
+    FILE *f = fopen(CONF_PATH, "r");
+    if (!f) return pkgs;
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        std::string s(line);
+        // 去掉换行和空格
+        while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' '))
+            s.pop_back();
+        // 跳过空行和注释
+        if (s.empty() || s[0] == '#') continue;
+        pkgs.push_back(s);
+    }
+    fclose(f);
+    return pkgs;
+}
 
 using zygisk::Api;
 using zygisk::AppSpecializeArgs;
@@ -41,16 +56,23 @@ public:
             api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
             return;
         }
+
+        auto pkgs = loadPackages();
         bool match = false;
-        for (int i = 0; TARGET_PKGS[i] != nullptr; i++) {
-            if (strcmp(pkg, TARGET_PKGS[i]) == 0) { match = true; break; }
+        for (auto &p : pkgs) {
+            if (p == pkg) { match = true; break; }
         }
         env->ReleaseStringUTFChars(args->nice_name, pkg);
+
         if (!match) {
             api->setOption(zygisk::Option::DLCLOSE_MODULE_LIBRARY);
             return;
         }
-        if (access(FAKE_CPUINFO, R_OK) != 0) { LOGE("fake cpuinfo not found"); return; }
+
+        if (access(FAKE_CPUINFO, R_OK) != 0) {
+            LOGE("fake cpuinfo not found");
+            return;
+        }
         if (mount(FAKE_CPUINFO, REAL_CPUINFO, nullptr, MS_BIND | MS_RDONLY, nullptr) == 0) {
             LOGI("mounted fake cpuinfo");
         } else {

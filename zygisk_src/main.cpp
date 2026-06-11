@@ -1,6 +1,6 @@
+#include <sys/types.h>
 #include "zygisk.hpp"
 #include <sys/mount.h>
-#include <sys/types.h>
 #include <unistd.h>
 #include <cstring>
 #include <cerrno>

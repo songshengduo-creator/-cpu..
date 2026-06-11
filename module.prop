@@ -1,0 +1,8 @@
+id=cpuinfo_spoofer
+name=麒麟9030
+version=3.0
+versionCode=1
+author=Smile
+description=kirin9030
+minMagisk=24000
+zygisk=true

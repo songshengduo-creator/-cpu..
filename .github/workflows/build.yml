@@ -12,6 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Clone zygisk-module-sample
+        run: |
+          git clone --depth=1 https://github.com/topjohnwu/zygisk-module-sample zygisk-sample
+
       - name: Setup Android NDK
         uses: android-actions/setup-android@v3
 
@@ -20,11 +24,9 @@ jobs:
           echo "y" | sdkmanager "ndk;27.2.12479018"
           echo "NDK_PATH=$ANDROID_SDK_ROOT/ndk/27.2.12479018" >> $GITHUB_ENV
 
-      - name: Download zygisk.hpp
+      - name: Copy zygisk.hpp
         run: |
-          curl -sSL \
-            "https://raw.githubusercontent.com/topjohnwu/zygisk-module-sample/master/module/jni/zygisk.hpp" \
-            -o zygisk_src/zygisk.hpp
+          cp zygisk-sample/module/jni/zygisk.hpp zygisk_src/zygisk.hpp
 
       - name: Build arm64-v8a
         run: |
@@ -32,6 +34,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=${{ env.NDK_PATH }}/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=arm64-v8a \
             -DANDROID_PLATFORM=android-27 \
+            -DANDROID_STL=c++_static \
             -DCMAKE_BUILD_TYPE=Release \
             zygisk_src
           cmake --build build_arm64 --target cpuinfo_spoofer
@@ -44,6 +47,7 @@ jobs:
             -DCMAKE_TOOLCHAIN_FILE=${{ env.NDK_PATH }}/build/cmake/android.toolchain.cmake \
             -DANDROID_ABI=armeabi-v7a \
             -DANDROID_PLATFORM=android-27 \
+            -DANDROID_STL=c++_static \
             -DCMAKE_BUILD_TYPE=Release \
             zygisk_src
           cmake --build build_arm32 --target cpuinfo_spoofer
@@ -54,6 +58,7 @@ jobs:
           zip -r cpuinfo_spoofer.zip \
             module.prop \
             cpuinfo_spoof \
+            packages.conf \
             post-fs-data.sh \
             service.sh \
             META-INF/ \
